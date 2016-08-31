@@ -8,8 +8,8 @@ var svg = d3.select("body").append("svg")
 var force = d3.layout.force()
     .gravity(0.10)
     .linkDistance(100)
-    .linkStrength(0.1)
-    .charge(-180)
+    .linkStrength(0.5)
+    .charge(-500)
     .size([width, height]);
 
 var padding = 1,
@@ -58,22 +58,22 @@ d3.json("graph.json", function(error, json) {
         .attr("class", "node")
         .call(force.drag);
     
-    node.append("circle")
-	.attr("r", 20)
-        .style("fill", "gray")
-        .style("stroke", "black")
-        .style("stroke-width", 3)
-        .append("svg:image")
-        .append("xlink:href", function(d) {return d.image})
+    // node.append("circle")
+    // 	.attr("r", 20)
+    //     .style("fill", "gray")
+    //     .style("stroke", "black")
+    //     .style("stroke-width", 3)
+    //     .append("svg:image")
+    //     .append("xlink:href", function(d) {return d.image})
 	
-    // node.append("image")
-    //     .attr("xlink:href", function(d) {
-    //         return d.image
-    //     })
-    //     .attr("x", -8)
-    //     .attr("y", -8)
-    //     .attr("width", 50)
-    //     .attr("height", 50);
+    node.append("image")
+        .attr("xlink:href", function(d) {
+            return d.image
+        })
+        .attr("x", -8)
+        .attr("y", -8)
+        .attr("width", 50)
+        .attr("height", 50);
     
     node.append("text")
         .attr("dx", 12)

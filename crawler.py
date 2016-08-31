@@ -1,18 +1,19 @@
 import json
 import os
 import pickle
-from collections import Counter, deque
-from functools import lru_cache, partial, wraps
+from collections import deque
+from functools import wraps
 from urllib.request import urlopen
-from itertools import islice
+import yaml
 
 import networkx as nx
 import requests
 import soundcloud
 
 
-def iter_memcache(func):
-    path = 'cache.pkl'
+def iter_memcache(func, path='cache.pkl'):
+    '''Cache for time consuming API crawls.
+    '''
     @wraps
     def wrapper(*args, **kwargs):
         if os.path.exists(path):
@@ -24,14 +25,13 @@ def iter_memcache(func):
                 pickle.dump(it, f)
         return it
     return wrapper
-        
+
 
 class Crawler(soundcloud.Client):
-    CLIENT_ID = '44e0c1f64e3a46e29c64a920932a8f09'
-    CLIENT_SECRET = 'fe853d1167fdb2ad573ad57f2c41e115'
-
-    def __init__(self):
-        super().__init__(client_id=self.CLIENT_ID)
+    def __init__(self, config_path):
+        with open(config_path) as f:
+            self.config = yaml.load(f)
+        super().__init__(client_id=self.config['client']['id'])
 
     def get_all(self, method):
         '''Yield resources over all pages given a method.
@@ -47,7 +47,7 @@ class Crawler(soundcloud.Client):
         '''
         if from_id:
             artist = self.get('/users/{}'.format(artist)).fields()
-        
+
         graph = nx.Graph()
         graph.add_node(artist['id'], {
             'name': artist['username'],
@@ -56,7 +56,7 @@ class Crawler(soundcloud.Client):
 
         queue = deque([artist])
         seen = set()
-        
+
         while queue and depth > 0:
             artist = queue.popleft()
 
@@ -75,21 +75,13 @@ class Crawler(soundcloud.Client):
                     'name': track.user['username'],
                     'image': track.user['avatar_url'],
                 }
-                    
+
                 if track.user['id'] not in seen:
                     queue.append(track.user)
 
             depth -= 1
-        
+
         return graph
-    
-# artist = 'clakclakboomclak'
-# counts = Counter()
-# for track in likes(artist):
-#     # user_id = track.user_id
-#     counts[track.user['username']] += 1
-
-
 
 
 def download_likes():
@@ -110,23 +102,18 @@ def download_likes():
             data = json.loads(resp.text)
             url = data['http_mp3_128_url']
             fmt = 'mp3'
-        
+
         filename = '{}.{}'.format(track.title, fmt)
-        # if '-' not in filename and not filename.startswith('Slime'):
-            # import pdb
-            # pdb.set_trace()
+
         if track.label_name:
             print(track.label_name, track.title)
-            
+
         # print(filename)
         continue
-    
+
         with urlopen(url) as resp, open(filename, 'wb') as f:
             shutil.copyfileobj(resp, f)
-        
+
+
 if __name__ == '__main__':
-    # download_likes()
-    graph = Crawler().favorites_graph('clakclakboomclak', 1)
-    import pdb
-    pdb.set_trace()
     pass
