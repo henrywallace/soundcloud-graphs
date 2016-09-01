@@ -1,14 +1,15 @@
 import json
 import os
 import pickle
+import shutil
 from collections import deque
-from functools import wraps
+from functools import wraps, lru_cache
 from urllib.request import urlopen
-import yaml
 
 import networkx as nx
 import requests
 import soundcloud
+import yaml
 
 
 def iter_memcache(func, path='cache.pkl'):
@@ -33,6 +34,10 @@ class Crawler(soundcloud.Client):
             self.config = yaml.load(f)
         super().__init__(client_id=self.config['client']['id'])
 
+    @lru_cache(maxsize=100)
+    def get(*args, **kwargs):
+        return super().get(*args, **kwargs)
+
     def get_all(self, method):
         '''Yield resources over all pages given a method.
         '''
@@ -44,6 +49,7 @@ class Crawler(soundcloud.Client):
 
     def favorites_graph(self, artist, depth, from_id=True):
         '''BFS generate favorites graph.
+
         '''
         if from_id:
             artist = self.get('/users/{}'.format(artist)).fields()
@@ -81,38 +87,58 @@ class Crawler(soundcloud.Client):
 
             depth -= 1
 
+        # keep only those nodes with at least degree 2
+        graph = graph.subgraph([node for node, deg in graph.degree().items()
+                                if deg >= self.config['graph']['min_degree']])
+
         return graph
 
+    def download(self, method):
+        '''Download all tracks yielded from API method.
 
-def download_likes():
-    query = '/users/giraffeapple/favorites'
-    for track in get_all(query):
-        if track.downloadable:
-            url = track.download_url + '?client_id=' + CLIENT_ID
-            fmt = track.original_format
-        elif track.streamable:
-            url = track.stream_url
-            import pdb
-            pdb.set_trace()
-            fmt = 'mp3'
-        else:
-            site_client_id = '02gUJC0hH2ct1EGOcYXQIzRFU91c72Ea'
-            url = 'http://{}/i1/tracks/{}/streams?client_id={}'.format(client.host, track.id, site_client_id)                           
-            resp = requests.get(url)
-            data = json.loads(resp.text)
-            url = data['http_mp3_128_url']
-            fmt = 'mp3'
+        For each resource whose kind is 'track', make 3 attempts at downloading
+        that track: if downloadable use download url; if streamable use stream
+        url; otherwise mimic Soundcloud's stream GET request.
 
-        filename = '{}.{}'.format(track.title, fmt)
+        Args:
+            method: Soundcloud API method, e.g. "/users/me/favorites"
+        '''
+        query = '/users/giraffeapple/favorites'
+        for resource in self.get_all(query):
+            if resource.kind != 'track':
+                continue
 
-        if track.label_name:
-            print(track.label_name, track.title)
+            track = resource
+            if track.downloadable:
+                url = '{}?client_id={}'.format(track.download_url,
+                                               self.config['client']['id'])
+                fmt = track.original_format
+            elif track.streamable:
+                url = track.stream_url
+                import pdb
+                pdb.set_trace()
+                fmt = 'mp3'
+            else:
+                site_client_id = '02gUJC0hH2ct1EGOcYXQIzRFU91c72Ea'
+                url = ('http://{}/i1/tracks/{}/streams'
+                       '?client_id={}').format(self.host,
+                                               track.id,
+                                               site_client_id)
+                resp = requests.get(url)
+                data = json.loads(resp.text)
+                url = data['http_mp3_128_url']
+                fmt = 'mp3'
 
-        # print(filename)
-        continue
+            filename = '{}.{}'.format(track.title, fmt)
 
-        with urlopen(url) as resp, open(filename, 'wb') as f:
-            shutil.copyfileobj(resp, f)
+            if track.label_name:
+                print(track.label_name, track.title)
+
+            print(filename)
+            continue  # TODO: remove this
+
+            with urlopen(url) as resp, open(filename, 'wb') as f:
+                shutil.copyfileobj(resp, f)
 
 
 if __name__ == '__main__':

@@ -1,0 +1,6 @@
+client:
+  id: '44e0c1f64e3a46e29c64a920932a8f09'
+  secret: 'fe853d1167fdb2ad573ad57f2c41e115'
+
+graph:
+  min_degree: 2

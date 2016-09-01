@@ -1,5 +1,5 @@
-var width = 960,
-    height = 500
+var width = 1200,
+    height = 600
 
 var svg = d3.select("body").append("svg")
     .attr("width", width)
@@ -7,9 +7,9 @@ var svg = d3.select("body").append("svg")
 
 var force = d3.layout.force()
     .gravity(0.10)
-    .linkDistance(100)
-    .linkStrength(0.5)
-    .charge(-500)
+    .linkDistance(150)
+    .linkStrength(0.1)
+    .charge(-1000)
     .size([width, height]);
 
 var padding = 1,
@@ -39,6 +39,8 @@ function collide(node) {
     };
 }
 
+function sigmoid(t) { with (Math) { return 1 / (1 + exp(-2*t)); } }
+
 d3.json("graph.json", function(error, json) {
     if (error) throw error;
     
@@ -50,7 +52,12 @@ d3.json("graph.json", function(error, json) {
     var link = svg.selectAll(".link")
         .data(json.links)
         .enter().append("line")
-        .attr("class", "link");
+        .attr("class", "link")
+        .style("stroke-opacity", function(d) { return d.weight/3; })
+        .style("stroke-width", 3)
+	.style("stroke", "gray")
+        // .linkStrength(2);
+
     
     var node = svg.selectAll(".node")
         .data(json.nodes)
@@ -76,8 +83,8 @@ d3.json("graph.json", function(error, json) {
         .attr("height", 50);
     
     node.append("text")
-        .attr("dx", 12)
-        .attr("dy", ".35em")
+        // .attr("dx", 25)
+        .attr("dy", "-1em")
         .text(function(d) {
             return d.name
         });
