@@ -80,7 +80,8 @@ d3.json("graph.json", function(error, json) {
         .attr("x", -8)
         .attr("y", -8)
         .attr("width", 50)
-        .attr("height", 50);
+        .attr("height", 50)
+        .style("opacity", function(d) { return d.weight/4 });
     
     node.append("text")
         // .attr("dx", 25)

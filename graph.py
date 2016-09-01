@@ -6,7 +6,7 @@ from networkx.readwrite import json_graph
 from crawler import Crawler
 
 crawler = Crawler('config.yaml')
-graph = crawler.favorites_graph('clakclakboomclak', 2)
+graph = crawler.favorites_graph('clakclakboomclak', 3)
 
 
 d = json_graph.node_link_data(graph)

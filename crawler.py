@@ -32,11 +32,11 @@ class Crawler(soundcloud.Client):
     def __init__(self, config_path):
         with open(config_path) as f:
             self.config = yaml.load(f)
-        super().__init__(client_id=self.config['client']['id'])
+        super(Crawler, self).__init__(client_id=self.config['client']['id'])
 
     @lru_cache(maxsize=100)
-    def get(*args, **kwargs):
-        return super().get(*args, **kwargs)
+    def __getattr__(self, *args, **kwargs):
+        return super(Crawler, self).__getattr__(*args, **kwargs)
 
     def get_all(self, method):
         '''Yield resources over all pages given a method.
@@ -90,6 +90,9 @@ class Crawler(soundcloud.Client):
         # keep only those nodes with at least degree 2
         graph = graph.subgraph([node for node, deg in graph.degree().items()
                                 if deg >= self.config['graph']['min_degree']])
+
+        for n in graph:
+            graph.node[n]['weight'] = graph.degree(n)
 
         return graph
 
