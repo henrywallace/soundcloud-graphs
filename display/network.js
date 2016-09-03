@@ -67,7 +67,7 @@ d3.json("graph.json", function(error, json) {
     
     // node.append("circle")
     // 	.attr("r", 20)
-    //     .style("fill", "gray")
+    //     .style("fill", "gray"),
     //     .style("stroke", "black")
     //     .style("stroke-width", 3)
     //     .append("svg:image")
@@ -80,8 +80,8 @@ d3.json("graph.json", function(error, json) {
         .attr("x", -8)
         .attr("y", -8)
         .attr("width", 50)
-        .attr("height", 50)
-        .style("opacity", function(d) { return d.weight/4 });
+        .attr("height", 50);
+        // .style("opacity", function(d) { return d.weight/4 });
     
     node.append("text")
         // .attr("dx", 25)
