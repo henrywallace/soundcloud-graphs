@@ -1,43 +1,80 @@
 import json
 import os
-import pickle
 import shutil
-from collections import deque
-from functools import wraps, lru_cache
+from collections import deque, namedtuple
+from functools import wraps, lru_cache, partial
 from urllib.request import urlopen
+import datetime
 
 import networkx as nx
 import requests
 import soundcloud
 import yaml
+import dill as pickle
+
+Record = namedtuple('Record', ['value', 'timestamp'])
 
 
-def iter_memcache(func, path='cache.pkl'):
+def iter_memcache(func, path='cache.pkl', refresh=None):
     '''Cache for time consuming API crawls.
     '''
-    @wraps
+    @wraps(func)
     def wrapper(*args, **kwargs):
-        if os.path.exists(path):
+        try:
             with open(path, 'rb') as f:
-                it = pickle.load(f)
-        else:
-            it = list(func(*args, **kwargs))
-            with open(path, 'wb') as f:
-                pickle.dump(it, f)
-        return it
+                cache = pickle.load(f)
+        except (EOFError, FileNotFoundError):
+            cache = {}
+
+        key = (args[1:], frozenset(kwargs.items()))  # don't include self
+        now = datetime.datetime.now()
+
+        if key not in cache:
+            value = list(func(*args, **kwargs))
+            cache[key] = Record(value, now)
+        elif refresh is not None:
+            record = cache[key]
+            if (now - record.timestamp) < refresh:
+                value = list(func(*args, **kwargs))
+                cache[key] = Record(value, now)
+
+        with open(path, 'wb') as f:
+            pickle.dump(cache, f)
+
+        return cache[key]
+
     return wrapper
 
 
 class Crawler(soundcloud.Client):
+    '''Wrapper around Soundcloud client to crawl users and tracks.
+    '''
     def __init__(self, config_path):
+        '''Read API credentials from yaml config file.
+
+        Client secret is only necessary for changes to user data.
+
+        Example:
+        ```
+            client:
+                id: '<api_client_id>'
+                secret: '<api_client_secret>'
+
+            graph:
+                min_degree: 2
+        ```
+        '''
         with open(config_path) as f:
             self.config = yaml.load(f)
         super(Crawler, self).__init__(client_id=self.config['client']['id'])
 
     @lru_cache(maxsize=100)
     def __getattr__(self, *args, **kwargs):
+        '''Cache Soundcloud.client requests, e.g. get.
+        '''
         return super(Crawler, self).__getattr__(*args, **kwargs)
 
+    # @iter_memcache
     def get_all(self, method):
         '''Yield resources over all pages given a method.
         '''
@@ -70,7 +107,6 @@ class Crawler(soundcloud.Client):
 
             method = '/users/{}/favorites'.format(artist['id'])
             for track in self.get_all(method):
-
                 u, v = artist['id'], track.user['id']
                 if graph.has_edge(u, v):
                     graph.edge[u][v]['weight'] += 1
